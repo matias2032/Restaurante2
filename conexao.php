@@ -7,10 +7,10 @@ $bd="railway";
 
 $conexao= new mysqli($host,$port, $usuario, $password,$bd);
 
-if ($conexao->connect_error){
-
-    echo "Erro ao conectar á base de dados";
+if ($conexao->connect_error) {
+    die("Erro ao conectar à base de dados: " . $conexao->connect_error);
 }
+
 
 
 
