@@ -10,8 +10,14 @@ COPY . /var/www/html/
 # Ajustar permissões
 RUN chown -R www-data:www-data /var/www/html
 
-# Expôr a porta padrão do Apache (não precisa mexer, o Railway mapeará automaticamente)
-EXPOSE 8080
+# --- CORREÇÃO DO RAILWAY ---
+# O Railway atribui uma porta aleatória na variável $PORT.
+# O Apache por padrão ouve na 80. Este comando altera a configuração do Apache
+# para ouvir na porta definida pelo Railway.
+RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
-# Comando padrão para rodar o Apache em foreground
+# O EXPOSE é apenas documentação no Railway, mas deixamos dinâmico ou omitimos
+# EXPOSE $PORT 
+
+# Comando padrão
 CMD ["apache2-foreground"]
