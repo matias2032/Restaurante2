@@ -1,7 +1,7 @@
 <?php
 // limpar_filtros.php
 
-// Origem esperada (validação simpless)
+// Origem esperada (validação simples)
 $origem = $_GET['origem'] ?? 'cardapio';
 $map = [
     'cardapio'   => 'cardapio.php?modo=admin_pedido',
