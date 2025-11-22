@@ -308,7 +308,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         // 3. INSERIR NA PEDIDO_TEMP E GERAR REFERÊNCIA
         $reference = strtoupper(bin2hex(random_bytes(6)));
-       $returnUrl = "https://web-production-51ac.up.railway.app/finalizar_pedido.php?ref=" . $reference;
+        $returnUrl = "https://undebated-man-unrelating.ngrok-free.dev/Restaurante/finalizar_pedido.php?ref=" . $reference;
         
         $stmt_temp = $conexao->prepare("
             INSERT INTO pedido_temp (id_usuario, reference, idtipo_pagamento, idtipo_entrega, total, pontos_gastos, endereco_info, itens, bairro, ponto_referencia, telefone,data_criacao)
@@ -419,8 +419,12 @@ $stmt_temp->bind_param("isiidissssi", // CORRIGIDO: Agora tem 8 caracteres
             <div class="usuario-iniciais" style="background-color:<?= $corAvatar ?>;"><?= $iniciais ?></div>
             <div class="usuario-nome"><?= $nomeCompleto ?></div>
             <div class="menu-perfil" id="menuPerfil">
-              <a href="editarusuario.php?id_usuario=<?= $usuario['id_usuario'] ?>">Editar Dados Pessoais</a>
-              <a href="alterar_senha2.php">Alterar Senha</a>
+              <a href="editarusuario.php?id_usuario=<?= $usuario['id_usuario'] ?>">
+              <img class="icone" src="icones/user1.png" alt="Editar" title="Editar">  
+              Editar Dados Pessoais</a>
+              <a href="alterar_senha2.php">
+              <img class="icone" src="icones/cadeado1.png" alt="Alterar" title="Alterar">   
+              Alterar Senha</a>
               <a href="logout.php"><img class="iconelogout" src="icones/logout1.png"> Sair</a>
             </div>
           </div>
