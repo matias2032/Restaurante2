@@ -45,11 +45,5 @@ try {
     
     
 } catch (PDOException $e) {
-    // Em produção, não exponha detalhes do erro
-    if ($_ENV['APP_ENV'] === 'production') {
-        die("❌ Erro ao conectar ao banco de dados. Entre em contato com o suporte.");
-    } else {
-        die("❌ Erro de conexão com o banco de dados: " . $e->getMessage());
-    }
+    die("❌ Erro de conexão com o banco de dados: " . $e->getMessage());
 }
-?>

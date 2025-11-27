@@ -37,18 +37,6 @@ function iniciarPagamentoPaySuite($id_usuario, $valor, $metodo, $telefone, $emai
     // O $returnUrl já vem formatado de finalizar_pedido.php
     $callbackUrl = "https://undebated-man-unrelating.ngrok-free.dev/Restaurante/API/paysuite_callback.php";
 
-    // CORREÇÃO: Busca o nome do usuário para exibir no checkout
-    $stmt_user = $conexao->prepare("SELECT nome, apelido FROM usuario WHERE id_usuario = ?");
-    $stmt_user->bind_param("i", $id_usuario);
-    $stmt_user->execute();
-    $user_data = $stmt_user->get_result()->fetch_assoc();
-    $stmt_user->close();
-    
-    $nome_completo = trim(($user_data['nome'] ?? '') . ' ' . ($user_data['apelido'] ?? ''));
-    if (empty($nome_completo)) {
-        $nome_completo = "Cliente"; // Fallback caso não tenha nome
-    }
-
     // Monta payload da PaySuite
     $payload = [
         "amount" => $valor,
@@ -115,4 +103,3 @@ function iniciarPagamentoPaySuite($id_usuario, $valor, $metodo, $telefone, $emai
         ];
     }
 }
-?>
