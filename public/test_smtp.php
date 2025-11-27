@@ -44,7 +44,7 @@ try {
         echo htmlspecialchars($str) . "<br>";
     };
     
-    $mail->addAddress($_ENV['SMTP_USER']); // Envia para você mesmo
+    $mail->addAddress($_ENV['FROM_EMAIL']); // Envia para seu próprio email
     $mail->Subject = "Teste SMTP - " . date('Y-m-d H:i:s');
     $mail->Body = "<h2>✅ Email de teste</h2><p>Se você recebeu este email, o SMTP está funcionando!</p>";
     
