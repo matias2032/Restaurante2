@@ -35,24 +35,3 @@ RUN sed -i 's/80/8080/g' /etc/apache2/sites-available/000-default.conf /etc/apac
 
 # 8. EXPOR A PORTA
 EXPOSE 8080
-
-# Sem CMD aqui - vai usar o Custom Start Command do Railway
-```
-
-## Configuração no Railway:
-
-1. **Custom Start Command**: `composer install --no-dev --optimize-autoloader && apache2-foreground`
-2. **Target Port**: `8080` ✓
-3. **Variables**: Adicione `PORT=8080` (opcional, mas recomendado)
-
-## Por que isso funciona:
-
-- O `composer install` roda **toda vez** que o container inicia
-- Depois instala as dependências, inicia o Apache
-- O `&&` garante que o Apache só inicia se o composer foi bem-sucedido
-
-Faça commit, push e aguarde o deploy. Os logs devem mostrar:
-```
-Installing dependencies from lock file...
-...
-[Apache logs aqui]
