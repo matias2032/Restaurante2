@@ -20,15 +20,16 @@ RUN docker-php-ext-install pdo_mysql zip
 
 # 3. INSTALAR O COMPOSER
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-# ----------------------------------------------------
-# 4. EXECUTAR COMPOSER INSTALL NA FASE DE BUILD (CHAVE!)
-# Isto cria a pasta vendor antes do container iniciar.
-RUN composer install --no-dev --optimize-autoloader
 # ----------------------------------------------------
 
-# Copiar todos os arquivos do projeto para o container
+# 4. COPIAR OS ARQUIVOS DO PROJETO PRIMEIRO! (Passo CRUCIAL)
+# Copia todos os arquivos do projeto (incluindo composer.json) para o container
 COPY . /var/www/html/
+# Define o diretório de trabalho padrão
+WORKDIR /var/www/html/
+
+# 5. EXECUTAR COMPOSER INSTALL AGORA QUE O FICHEIRO EXISTE
+RUN composer install --no-dev --optimize-autoloader
 
 # Ajustar permissões
 RUN chown -R www-data:www-data /var/www/html
@@ -36,6 +37,5 @@ RUN chown -R www-data:www-data /var/www/html
 # --- CORREÇÃO DO RAILWAY ---
 RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
-# 5. COMANDO PADRÃO FINAL
-# Agora, apenas inicia o Apache.
+# 6. COMANDO PADRÃO FINAL
 CMD ["apache2-foreground"]
