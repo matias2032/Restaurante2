@@ -24,20 +24,35 @@ COPY . /var/www/html/
 
 WORKDIR /var/www/html/
 
-# 5. EXECUTAR COMPOSER INSTALL
-RUN composer install --no-dev --optimize-autoloader
-
-# 6. AJUSTAR PERMISSÕES
+# 5. AJUSTAR PERMISSÕES
 RUN chown -R www-data:www-data /var/www/html
 
-# 7. HABILITAR mod_rewrite
+# 6. HABILITAR mod_rewrite
 RUN a2enmod rewrite
 
-# 8. CONFIGURAR APACHE PARA PORTA 8080 (Railway padrão)
+# 7. CONFIGURAR APACHE PARA PORTA 8080
 RUN sed -i 's/80/8080/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
-# 9. EXPOR A PORTA
+# 8. EXPOR A PORTA
 EXPOSE 8080
 
-# 10. COMANDO PADRÃO
-CMD ["apache2-foreground"]
+# Sem CMD aqui - vai usar o Custom Start Command do Railway
+```
+
+## Configuração no Railway:
+
+1. **Custom Start Command**: `composer install --no-dev --optimize-autoloader && apache2-foreground`
+2. **Target Port**: `8080` ✓
+3. **Variables**: Adicione `PORT=8080` (opcional, mas recomendado)
+
+## Por que isso funciona:
+
+- O `composer install` roda **toda vez** que o container inicia
+- Depois instala as dependências, inicia o Apache
+- O `&&` garante que o Apache só inicia se o composer foi bem-sucedido
+
+Faça commit, push e aguarde o deploy. Os logs devem mostrar:
+```
+Installing dependencies from lock file...
+...
+[Apache logs aqui]
