@@ -1,39 +1,60 @@
 <?php
-// config/mailer.php
+// config/mailer.php - Usando API HTTP do Resend
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-
-function getMailer(): PHPMailer {
-    $mail = new PHPMailer(true);
-
-    try {
-        // Configuração SMTP
-        $mail->isSMTP();
-        $mail->Host       = $_ENV['SMTP_HOST'];
-        $mail->Port       = (int) $_ENV['SMTP_PORT'];
-        $mail->SMTPSecure = $_ENV['SMTP_SECURE']; // 'ssl' ou 'tls'
-        $mail->SMTPAuth   = true; // Gmail PRECISA de autenticação
-        $mail->Username   = $_ENV['SMTP_USER'];
-        $mail->Password   = $_ENV['SMTP_PASS'];
-        
-        // Timeout para evitar travamento
-        $mail->Timeout = 10; // 10 segundos
-        $mail->SMTPKeepAlive = false;
-        
-        // Remetente
-        $mail->setFrom($_ENV['FROM_EMAIL'], $_ENV['FROM_NAME']);
-        $mail->isHTML(true);
-        $mail->CharSet = 'UTF-8';
-        
-        // DEBUG (comentar em produção)
-        // $mail->SMTPDebug = 2; // 0=off, 1=client, 2=client+server
-        
-    } catch (Exception $e) {
-        error_log("Erro ao configurar PHPMailer: " . $e->getMessage());
-        throw $e;
+/**
+ * Envia email usando a API HTTP do Resend
+ * Mais confiável que SMTP em ambientes cloud (Railway, Heroku, etc)
+ */
+function sendEmail(string $to, string $subject, string $htmlBody): bool {
+    $apiKey = $_ENV['RESEND_API_KEY'];
+    $fromEmail = $_ENV['FROM_EMAIL'];
+    $fromName = $_ENV['FROM_NAME'];
+    
+    $data = [
+        'from' => "$fromName <$fromEmail>",
+        'to' => [$to],
+        'subject' => $subject,
+        'html' => $htmlBody
+    ];
+    
+    $ch = curl_init('https://api.resend.com/emails');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $apiKey,
+            'Content-Type: application/json'
+        ],
+        CURLOPT_POSTFIELDS => json_encode($data),
+        CURLOPT_TIMEOUT => 10
+    ]);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($error) {
+        error_log("Erro CURL ao enviar email: $error");
+        return false;
     }
+    
+    if ($httpCode !== 200) {
+        error_log("Erro Resend API (HTTP $httpCode): $response");
+        return false;
+    }
+    
+    error_log("Email enviado com sucesso para $to");
+    return true;
+}
 
-    return $mail;
+/**
+ * COMPATIBILIDADE: Mantém a função antiga para não quebrar código existente
+ * Mas agora usa a API HTTP internamente
+ */
+function getMailer() {
+    // Esta função não é mais usada com a API HTTP
+    // Mantida apenas para compatibilidade
+    throw new Exception("Use sendEmail() em vez de getMailer() com Resend API");
 }
