@@ -35,31 +35,70 @@ echo "</pre>";
 // 3. Enviar email de teste
 echo "<h3>3️⃣ Teste de Envio de Email</h3>";
 
+// Captura os logs
+ob_start();
+
 try {
     $testEmail = $_ENV['FROM_EMAIL']; // Envia para você mesmo
     
     echo "<p>Enviando email de teste para: <strong>$testEmail</strong></p>";
     
-    $result = sendEmail(
-        $testEmail,
-        "Teste Resend API - " . date('Y-m-d H:i:s'),
-        "<h2>✅ Teste bem-sucedido!</h2><p>Se você recebeu este email, a API do Resend está funcionando perfeitamente no Railway!</p>"
-    );
+    // Faz uma chamada direta para ver o erro
+    $apiKey = $_ENV['RESEND_API_KEY'];
+    $data = [
+        'from' => $_ENV['FROM_NAME'] . ' <' . $_ENV['FROM_EMAIL'] . '>',
+        'to' => [$testEmail],
+        'subject' => "Teste Resend API - " . date('Y-m-d H:i:s'),
+        'html' => "<h2>✅ Teste bem-sucedido!</h2><p>Se você recebeu este email, a API do Resend está funcionando!</p>"
+    ];
     
-    if ($result) {
+    $ch = curl_init('https://api.resend.com/emails');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $apiKey,
+            'Content-Type: application/json'
+        ],
+        CURLOPT_POSTFIELDS => json_encode($data),
+        CURLOPT_TIMEOUT => 10
+    ]);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+    
+    echo "<h4>📊 Detalhes da Requisição:</h4>";
+    echo "<pre style='background:#f5f5f5;padding:10px;border-radius:5px;'>";
+    echo "HTTP Code: $httpCode\n";
+    echo "CURL Error: " . ($curlError ?: "Nenhum") . "\n";
+    echo "Response: " . htmlspecialchars($response) . "\n";
+    echo "</pre>";
+    
+    if ($httpCode === 200) {
         echo "<div style='background:#d4edda;color:#155724;padding:20px;border-radius:8px;'>";
         echo "<h3>✅ EMAIL ENVIADO COM SUCESSO!</h3>";
         echo "<p>Verifique sua caixa de entrada: <strong>$testEmail</strong></p>";
-        echo "<p>⚠️ Se não chegou, verifique:</p>";
-        echo "<ul>";
-        echo "<li>Pasta de SPAM</li>";
-        echo "<li>Se o email está verificado no Resend</li>";
-        echo "</ul>";
         echo "</div>";
     } else {
         echo "<div style='background:#f8d7da;color:#721c24;padding:20px;border-radius:8px;'>";
-        echo "<h3>❌ Falha no envio</h3>";
-        echo "<p>Verifique os logs do servidor para mais detalhes.</p>";
+        echo "<h3>❌ Falha no envio (HTTP $httpCode)</h3>";
+        
+        $responseData = json_decode($response, true);
+        if ($responseData) {
+            echo "<p><strong>Erro:</strong> " . htmlspecialchars($responseData['message'] ?? 'Erro desconhecido') . "</p>";
+            if (isset($responseData['name'])) {
+                echo "<p><strong>Tipo:</strong> " . htmlspecialchars($responseData['name']) . "</p>";
+            }
+        }
+        
+        echo "<h4>Possíveis causas:</h4>";
+        echo "<ul>";
+        echo "<li>Email não verificado no Resend</li>";
+        echo "<li>API Key inválida ou sem permissões</li>";
+        echo "<li>Formato do email incorreto</li>";
+        echo "</ul>";
         echo "</div>";
     }
     
