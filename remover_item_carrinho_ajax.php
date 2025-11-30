@@ -1,4 +1,5 @@
 <?php
+//remover_item_carrinho.ajax
 session_start();
 header("Content-Type: application/json");
 
@@ -66,3 +67,4 @@ if (!empty($_COOKIE['carrinho'])) {
 
 echo json_encode(["ok" => false, "erro" => "Carrinho não encontrado"]);
 exit;
+
