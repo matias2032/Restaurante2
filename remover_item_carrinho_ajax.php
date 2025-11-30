@@ -16,26 +16,22 @@ include "conexao.php";
 // ======================================================
 // USUÁRIO LOGADO → REMOVER DO BANCO
 // ======================================================
+
 if (!empty($_SESSION['usuario']['id_usuario'])) {
-    $id_usuario = $_SESSION['usuario']['id_usuario'];
+    $id_usuario = (int)$_SESSION['usuario']['id_usuario'];
+    $uuid       = $_GET['uuid'];
 
-    $sql = "SELECT id_carrinho FROM carrinho WHERE id_usuario=? AND status='activo'";
+    // Remove pelo UUID + dono do carrinho (independente do id_carrinho ativo)
+    $sql = "DELETE ic FROM item_carrinho ic
+            INNER JOIN carrinho c ON ic.id_carrinho = c.id_carrinho
+            WHERE ic.uuid = ? AND c.id_usuario = ? AND c.status = 'activo'";
+
     $stmt = $conexao->prepare($sql);
-    $stmt->bind_param("i", $id_usuario);
+    $stmt->bind_param("si", $uuid, $id_usuario);
     $stmt->execute();
-    $res = $stmt->get_result()->fetch_assoc();
 
-    if ($res) {
-        $id_carrinho = $res['id_carrinho'];
-
-        $sql = "DELETE FROM item_carrinho WHERE uuid=? AND id_carrinho=?";
-        $stmt = $conexao->prepare($sql);
-        $stmt->bind_param("si", $uuid, $id_carrinho);
-        $stmt->execute();
-
-        echo json_encode(["ok" => true]);
-        exit;
-    }
+    echo json_encode(["ok" => $stmt->affected_rows > 0]);
+    exit;
 }
 
 // ======================================================
@@ -68,3 +64,4 @@ if (!empty($_COOKIE['carrinho'])) {
 
 echo json_encode(["ok" => false, "erro" => "Carrinho não encontrado"]);
 exit;
+
