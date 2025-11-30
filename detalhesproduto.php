@@ -79,10 +79,11 @@ if (!isset($_GET['id_produto']) || empty($_GET['id_produto'])) {
 $id_produto = intval($_GET['id_produto']);
 
 // Busca produto (não precisamos mais da coluna quantidade_estoque aqui)
-$stmt = $conexao->prepare("SELECT   
+// Busca produto (não precisamos mais da coluna quantidade_estoque aqui)
+$stmt = $conexao->prepare("SELECT    
         p.*, p.preco_promocional, p.preco,
         GROUP_CONCAT(c.nome_categoria SEPARATOR ', ') AS categorias_nomes,
-        img.caminho_imagem AS imagem_principal
+        MAX(img.caminho_imagem) AS imagem_principal
     FROM
         produto p
     LEFT JOIN
@@ -92,7 +93,9 @@ $stmt = $conexao->prepare("SELECT
     LEFT JOIN
         produto_imagem img ON img.id_produto = p.id_produto AND img.imagem_principal = 1
     where
-        p.id_produto=?");
+        p.id_produto=?
+    GROUP BY
+        p.id_produto"); // <-- CLÁUSULA ADICIONADA AQUI!
         
 $stmt->bind_param("i", $id_produto);
 $stmt->execute();
