@@ -2,7 +2,6 @@
 include "conexao.php";
 require_once "require_login.php";
 
-
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
@@ -22,11 +21,10 @@ $id_produto = intval($_GET['id']);
 $mensagem = "";
 $houveAlteracao = false;
 
-// 🆕 Buscar o ID da categoria 'Promoções da Semana' para usar na lógica condicional
+// 🆕 NOVIDADE: Buscar o ID da categoria 'Promoções da Semana' para usar na lógica condicional
 $id_promocao = null;
 $stmt_promocao = $conexao->prepare("SELECT id_categoria FROM categoria WHERE nome_categoria = ?");
 $nome_promocao = "Promoções da Semana";
-// ⚠️ CORREÇÃO: Usar um bind_param para evitar problemas de codificação ou SQL Injection
 if ($stmt_promocao) {
     $stmt_promocao->bind_param("s", $nome_promocao);
     $stmt_promocao->execute();
@@ -37,7 +35,6 @@ if ($stmt_promocao) {
     $stmt_promocao->close();
 }
 
-
 // 🔄 AJAX: Carregar ingredientes por categoria e quantidade associada
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'categorias2') {
     $id_categoriadoingrediente = $_GET['categoriadoingrediente'] ?? null;
@@ -47,7 +44,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'categorias2') {
         exit;
     }
 
-    // Consulta SQL para buscar os ingredientes e suas quantidades associadas (se existirem)
+    // Consulta SQL para buscar os ingredientes e suas quantidades associadas
     $sql = "SELECT 
                 i.id_ingrediente, 
                 i.nome_ingrediente,
@@ -114,27 +111,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $ingredientes = $_POST['ingredientes'] ?? [];
         $id_categoriadoingrediente = filter_var($_POST['categoriadoingrediente'], FILTER_VALIDATE_INT);
         
-        // 🚀 CORREÇÃO PRINCIPAL: Lógica para o preço promocional
-        $preco_promocional = null; // Inicializa como NULL
-        
-        // Verifica se a categoria de promoção está selecionada E se o campo promocional foi preenchido
-        $is_promocao_selecionada = ($id_promocao && in_array($id_promocao, $categorias_selecionadas));
-        
-        if ($is_promocao_selecionada) {
-            // Se estiver em promoção, tenta obter o valor. Se for vazio, define como NULL.
-            $valor_promocional = trim($_POST['preco_promocional'] ?? '');
-            if (!empty($valor_promocional)) {
-                $preco_promocional = floatval($valor_promocional);
-            } else {
-                // Se a promoção está selecionada mas o campo está vazio,
-                // definimos como NULL (não há preço promocional definido).
-                $preco_promocional = null;
-            }
-        } else {
-            // Se a categoria de promoção não estiver selecionada, o preço promocional deve ser NULL.
-            $preco_promocional = null;
-        }
+        // ---------------------------------------------------------
+        // 🔧 CORREÇÃO RAILWAY: Lógica Robusta para Preço Promocional
+        // ---------------------------------------------------------
+        $preco_promocional = null; // Padrão é NULL
 
+        // Verifica se a categoria de promoção está marcada
+        $is_promo_ativa = ($id_promocao && in_array($id_promocao, $categorias_selecionadas));
+
+        if ($is_promo_ativa) {
+            // Se ativa, verifica se o usuário digitou algo
+            $valor_input = trim($_POST['preco_promocional'] ?? '');
+            if ($valor_input !== '') {
+                $preco_promocional = floatval($valor_input);
+            }
+            // Se estiver vazio (''), permanece null
+        }
+        // Se a categoria NÃO estiver marcada, permanece null
 
         // Verifica duplicidade de nome (exceto o próprio)
         $verifica = $conexao->prepare("SELECT COUNT(*) FROM produto WHERE nome_produto = ? AND id_produto != ?");
@@ -149,24 +142,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             // Cancela a transação se o produto já existe
             $conexao->rollback();
         } else {
-            // 🆕 Atualiza os dados principais do produto
-            // ⚠️ Ajuste: o tipo de dado do $preco_promocional deve ser 'd' (double/float) e não 's' (string),
-            // mas o bind_param pode lidar com NULLs se o MySQL aceitar o NULL para DECIMAL.
-            // Para garantir que NULL seja enviado, usaremos a função `bind_param` diretamente abaixo.
-            
+            // Atualiza os dados principais do produto
+            // Usamos 'd' para double/decimal no bind_param para o preço promocional
             $stmt = $conexao->prepare("UPDATE produto SET nome_produto=?, descricao=?, preco=?, preco_promocional=? WHERE id_produto=?");
-            
-            // Para lidar com o NULL do preço promocional, usamos a referência direta do PHP 
-            // e garantimos que o MySQL entenda o NULL para o tipo DECIMAL.
-            // Aqui estamos usando a variável $preco_promocional que já foi tratada acima.
             $stmt->bind_param("ssdsi", $nome, $descricao, $preco, $preco_promocional, $id_produto);
             $stmt->execute();
-
+            
             if ($stmt->affected_rows > 0) {
                 $houveAlteracao = true;
             }
             $stmt->close();
-            
+
             // Lógica de atualização das categorias: delete e insert
             $conexao->query("DELETE FROM produto_categoria WHERE id_produto = $id_produto");
             $insere_cat = $conexao->prepare("INSERT INTO produto_categoria (id_produto, id_categoria) VALUES (?, ?)");
@@ -188,21 +174,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
             $insere_ing->close();
 
-            // Sincroniza as associações de categoria de produto com a categoria de ingrediente. (MANTIDO)
+            // Sincroniza as associações de categoria de produto com a categoria de ingrediente.
             if (!empty($categorias_selecionadas) && $id_categoriadoingrediente) {
-                // ... (seu código de sincronização de categoria de ingrediente)
+                // Remove todas as associações existentes
                 $stmt_delete = $conexao->prepare("DELETE FROM categoria_produto_ingrediente WHERE id_categoriadoingrediente = ?");
-                if ($stmt_delete === false) {
-                    throw new Exception("Falha ao preparar a declaração de exclusão: " . $conexao->error);
-                }
                 $stmt_delete->bind_param("i", $id_categoriadoingrediente);
                 $stmt_delete->execute();
                 $stmt_delete->close();
                 
+                // Insere as novas associações
                 $stmt_assoc = $conexao->prepare("INSERT INTO categoria_produto_ingrediente (id_categoria, id_categoriadoingrediente) VALUES (?, ?)");
-                if ($stmt_assoc === false) {
-                    throw new Exception("Falha ao preparar a declaração de inserção: " . $conexao->error);
-                }
                 foreach ($categorias_selecionadas as $id_categoria) {
                     $stmt_assoc->bind_param("ii", $id_categoria, $id_categoriadoingrediente);
                     $stmt_assoc->execute();
@@ -210,35 +191,30 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $stmt_assoc->close();
             }
             
-            // Lógica de atualização de imagens
+            // ---------------------------------------------------------
+            // 🔧 CORREÇÃO IMAGEM: Lógica da Imagem Principal
+            // ---------------------------------------------------------
             
-            // 1. Verifica se já existe uma imagem principal
-            $res_principal_existente = $conexao->query("SELECT COUNT(*) as count FROM produto_imagem WHERE id_produto = $id_produto AND imagem_principal = 1");
-            $existe_principal = $res_principal_existente->fetch_assoc()['count'] > 0;
-            
-            // 2. Atualiza imagem principal selecionada pelo RÁDIO BUTTON
-            if (isset($_POST['imagem_principal']) && $_POST['imagem_principal'] !== 'nova_imagem_0') {
-                $img_principal = intval($_POST['imagem_principal']);
-                $resAtual = $conexao->query("SELECT id_imagem FROM produto_imagem WHERE id_produto = $id_produto AND imagem_principal = 1");
-                $atual = $resAtual->fetch_assoc();
+            // 1. Verifica se JÁ existe uma imagem principal no banco para este produto
+            $check_main = $conexao->query("SELECT COUNT(*) as qtd FROM produto_imagem WHERE id_produto = $id_produto AND imagem_principal = 1");
+            $row_main = $check_main->fetch_assoc();
+            $tem_principal_no_banco = ($row_main['qtd'] > 0);
 
-                if (!$atual || $atual['id_imagem'] != $img_principal) {
-                    $conexao->query("UPDATE produto_imagem SET imagem_principal = 0 WHERE id_produto = $id_produto");
-                    $conexao->query("UPDATE produto_imagem SET imagem_principal = 1 WHERE id_imagem = $img_principal");
-                    $houveAlteracao = true;
-                    // Marca que uma principal já foi definida
-                    $existe_principal = true; 
-                }
-            } else {
-                // Se a seleção do rádio for uma nova imagem (que será tratada abaixo)
-                // ou se a seleção for uma imagem existente que não mudou, mantemos a lógica anterior.
-                // Aqui não fazemos nada, apenas deixamos a variável `existe_principal` no estado em que está.
+            // 2. Verifica se o usuário alterou a principal via Radio Button (Imagens existentes ou novas)
+            // O value do radio button pode ser o ID (ex: "45") ou um índice de nova imagem (ex: "nova_imagem_0")
+            $radio_selecionado = $_POST['imagem_principal'] ?? null;
+
+            // Se for um ID numérico (imagem existente), atualiza
+            if ($radio_selecionado && is_numeric($radio_selecionado)) {
+                $conexao->query("UPDATE produto_imagem SET imagem_principal = 0 WHERE id_produto = $id_produto");
+                $conexao->query("UPDATE produto_imagem SET imagem_principal = 1 WHERE id_imagem = " . intval($radio_selecionado));
+                $tem_principal_no_banco = true;
             }
 
-            // 3. Adiciona novas imagens
-            $primeira_nova_imagem_id = null;
-            $stmt_img = $conexao->prepare("INSERT INTO produto_imagem (id_produto, caminho_imagem, legenda, imagem_principal) VALUES (?, ?, ?, ?)");
+            // 3. Processa Upload de Novas Imagens
             if (isset($_FILES['imagens']) && is_array($_FILES['imagens']['tmp_name'])) {
+                $stmt_img = $conexao->prepare("INSERT INTO produto_imagem (id_produto, caminho_imagem, legenda, imagem_principal) VALUES (?, ?, ?, ?)");
+                
                 foreach ($_FILES['imagens']['tmp_name'] as $index => $tmp_name) {
                     if (!empty($tmp_name) && is_uploaded_file($tmp_name)) {
                         $nome_arquivo = basename($_FILES['imagens']['name'][$index]);
@@ -248,21 +224,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             $legenda = $_POST['legenda'][$index] ?? '';
                             $imagem_principal = 0;
 
-                            // 🎯 CORREÇÃO DA IMAGEM PRINCIPAL: Se NENHUMA imagem principal existir (nova ou antiga), 
-                            // a primeira imagem enviada se torna a principal.
-                            if (!$existe_principal && $index === 0) {
-                                $imagem_principal = 1;
-                                $existe_principal = true; // Marca como definida
-                            }
-
-                            // Verifica se o rádio button de uma das novas imagens foi marcado
-                            if (isset($_POST['imagem_principal']) && $_POST['imagem_principal'] == "nova_imagem_$index") {
-                                // Limpa qualquer principal existente para dar lugar à nova imagem
+                            // LÓGICA DE CORREÇÃO:
+                            // Se o usuário selecionou ESTA nova imagem específica no radio button
+                            if ($radio_selecionado === "nova_imagem_" . $index) {
                                 $conexao->query("UPDATE produto_imagem SET imagem_principal = 0 WHERE id_produto = $id_produto");
                                 $imagem_principal = 1;
-                                $existe_principal = true;
+                                $tem_principal_no_banco = true;
                             }
-                            
+                            // OU: Se não há nenhuma principal definida ainda, a primeira que sobe vira principal
+                            elseif (!$tem_principal_no_banco) {
+                                $imagem_principal = 1;
+                                $tem_principal_no_banco = true;
+                            }
+
                             $stmt_img->bind_param("issi", $id_produto, $destino, $legenda, $imagem_principal);
                             $stmt_img->execute();
                             $houveAlteracao = true;
@@ -278,13 +252,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 foreach ($_POST['legenda_existente'] as $id_imagem_existente => $nova_legenda) {
                     $stmt_legenda->bind_param("si", $nova_legenda, $id_imagem_existente);
                     $stmt_legenda->execute();
-                    if ($stmt_legenda->affected_rows > 0) {
-                        $houveAlteracao = true;
-                    }
                 }
                 $stmt_legenda->close();
             }
-            
+
             // Finaliza a transação
             $conexao->commit();
             $mensagem = "✅Produto atualizado com sucesso!";
@@ -297,7 +268,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $mensagem = "Ocorreu um erro: " . $e->getMessage();
     }
 }
-// ... (O restante do código de remoção de imagem e consulta de dados permanece inalterado)
 
 // Lógica de remoção de imagem (fora do bloco POST principal)
 if (isset($_GET['remover_imagem'])) {
@@ -305,29 +275,29 @@ if (isset($_GET['remover_imagem'])) {
     try {
         $id_imagem_remover = intval($_GET['remover_imagem']);
         
-        $caminho_img_res = $conexao->query("SELECT caminho_imagem FROM produto_imagem WHERE id_imagem = $id_imagem_remover");
-        $caminho_img_row = $caminho_img_res->fetch_assoc();
-        $caminho_img = $caminho_img_row['caminho_imagem'] ?? null;
+        $caminho_img_res = $conexao->query("SELECT caminho_imagem, imagem_principal FROM produto_imagem WHERE id_imagem = $id_imagem_remover");
+        $dados_img = $caminho_img_res->fetch_assoc();
 
-        if ($caminho_img) {
+        if ($dados_img) {
+            $caminho_img = $dados_img['caminho_imagem'];
+            $era_principal = $dados_img['imagem_principal'];
+
             $conexao->query("DELETE FROM produto_imagem WHERE id_imagem = $id_imagem_remover");
             if (file_exists($caminho_img)) {
                 unlink($caminho_img);
             }
-            
-            // 🎯 CORREÇÃO PÓS-REMOÇÃO: Se a imagem principal foi removida, a primeira restante deve se tornar a principal.
-            $check_principal = $conexao->query("SELECT id_imagem FROM produto_imagem WHERE id_produto = $id_produto AND imagem_principal = 1");
-            if ($check_principal->num_rows == 0) {
-                // Não há principal, seleciona a primeira que resta
-                $nova_principal_res = $conexao->query("SELECT id_imagem FROM produto_imagem WHERE id_produto = $id_produto LIMIT 1");
-                if ($nova_principal_res->num_rows > 0) {
-                    $nova_principal_id = $nova_principal_res->fetch_assoc()['id_imagem'];
-                    $conexao->query("UPDATE produto_imagem SET imagem_principal = 1 WHERE id_imagem = $nova_principal_id");
+
+            // SE removeu a principal, define outra como principal automaticamente
+            if ($era_principal == 1) {
+                $res_outra = $conexao->query("SELECT id_imagem FROM produto_imagem WHERE id_produto = $id_produto LIMIT 1");
+                if ($row_outra = $res_outra->fetch_assoc()) {
+                    $novo_id = $row_outra['id_imagem'];
+                    $conexao->query("UPDATE produto_imagem SET imagem_principal = 1 WHERE id_imagem = $novo_id");
                 }
             }
 
             $conexao->commit();
-            header("Location: editarproduto.php?id=$id_produto&mensagem=Imagem removida com sucesso!");
+            header("Location: editarproduto.php?id=$id_produto&imagemRemovida=1");
             exit;
         }
     } catch (Exception $e) {
@@ -336,7 +306,7 @@ if (isset($_GET['remover_imagem'])) {
     }
 }
 
-// 🆕 Adicionado preco_promocional na consulta para preencher o campo na edição
+// 🆕 NOVIDADE: Adicionado preco_promocional na consulta
 $stmt = $conexao->prepare("SELECT nome_produto, descricao, preco, preco_promocional FROM produto WHERE id_produto = ?");
 $stmt->bind_param("i", $id_produto);
 $stmt->execute();
@@ -351,8 +321,6 @@ if (!$produto) {
 $imagens = $conexao->query("SELECT * FROM produto_imagem WHERE id_produto = $id_produto");
 
 // Nova lógica para pré-selecionar a categoria de ingredientes
-// ... (o restante do código antes do HTML)
-// (MANTIDO)
 $selected_ingrediente_cat = null;
 $stmt_ing_cat = $conexao->prepare("SELECT cii.id_categoriadoingrediente FROM produto_ingrediente pi JOIN categoriadoingrediente_ingrediente cii ON pi.id_ingrediente = cii.id_ingrediente WHERE pi.id_produto = ? LIMIT 1");
 $stmt_ing_cat->bind_param("i", $id_produto);
@@ -371,16 +339,68 @@ if ($cat_ass_res) {
         $categorias_associadas[] = $row['id_categoria'];
     }
 }
-
 ?>
-
 
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-    </head>
+    <meta charset="UTF-8">
+    <meta name="viewport"  content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Editar Produto</title>
+        <script src="logout_auto.js"></script>
+
+    <link rel="stylesheet" href="css/admin.css">
+          <script src="js/darkmode2.js"></script>
+             <script src="js/sidebar.js"></script>
+             <script src="js/dropdown2.js"></script>
+</head>
 <body>
-    <div class="conteudo">
+    
+<button class="menu-btn">☰</button>
+
+<div class="sidebar-overlay"></div>
+    
+<sidebar class="sidebar">
+      
+          <br><br>
+        
+            <a href="ver_pratos.php">Voltar ás Refeições</a>
+       <div class="sidebar-user-wrapper">
+
+    <div class="sidebar-user" id="usuarioDropdown">
+
+        <div class="usuario-avatar" style="background-color: <?= $corAvatar ?>;">
+            <?= $iniciais ?>
+        </div>
+
+        <div class="usuario-dados">
+            <div class="usuario-nome"><?= $nome ?></div>
+            <div class="usuario-apelido"><?= $apelido ?></div>
+        </div>
+
+        <div class="usuario-menu" id="menuPerfil">
+            <a href='editarusuario.php?id_usuario=<?= $usuario['id_usuario'] ?>'>
+            <img class="icone" src="icones/user1.png" alt="Editar" title="Editar">    
+            Editar Dados Pessoais</a>
+            <a href="alterar_senha2.php">
+            <img class="icone" src="icones/cadeado1.png" alt="Alterar" title="Alterar">      
+            Alterar Senha</a>
+            <a href="logout.php">
+            <img class="iconelogout" src="icones/logout1.png" alt="Logout" title="Sair">    
+            Sair</a>
+        </div>
+
+    </div>
+
+    <img class="dark-toggle" id="darkToggle"
+         src="icones/lua.png"
+         alt="Modo Escuro"
+         title="Alternar modo escuro">
+</div>
+
+
+        </sidebar>
+        <div class="conteudo">
     <?php if ($mensagem): ?>
         <div class="mensagem <?= str_contains($mensagem, '✅') || str_contains($mensagem, 'removida') ? 'success' : 'error' ?>">
             <?= $mensagem ?>
@@ -420,9 +440,10 @@ if ($cat_ass_res) {
         <h4>Imagens do Produto</h4>
         <div id="imagens-container">
             <?php 
-            $imagens->data_seek(0); // Reseta o ponteiro para o início
-            $contador_imagem = 0;
-            while ($img = $imagens->fetch_assoc()): ?>
+            // Garante que o ponteiro está no inicio
+            $imagens->data_seek(0);
+            while ($img = $imagens->fetch_assoc()): 
+            ?>
             <div>
                 <img src="<?= htmlspecialchars($img['caminho_imagem']) ?>" width="100">
                 <input type="text" name="legenda_existente[<?= $img['id_imagem'] ?>]" value="<?= htmlspecialchars($img['legenda']) ?>">
@@ -432,9 +453,7 @@ if ($cat_ass_res) {
                     <input type="radio" name="imagem_principal" value="<?= $img['id_imagem'] ?>" <?= ($img['imagem_principal'] == 1) ? 'checked' : '' ?>>
                 </label>
             </div>
-            <?php 
-            $contador_imagem++;
-            endwhile; ?>
+            <?php endwhile; ?>
         </div>
         <button type="button" onclick="adicionarCampoImagem()">+ Adicionar Imagem</button><br><br>
 
@@ -454,27 +473,39 @@ if ($cat_ass_res) {
             </div>
         
         <script>
-            // ... (seu código JavaScript)
-            function adicionarCampoImagem() {
-                const container = document.getElementById('imagens-container');
-                // 🎯 CORREÇÃO: Usar um prefixo diferente para novas imagens para evitar conflito com IDs existentes
-                const index = container.children.length; 
-                const radioValue = `nova_imagem_${index}`;
-
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <input type="file" name="imagens[]" required>
-                    <input type="text" name="legenda[]" placeholder="Legenda da imagem">
-                    <label>
-                        Principal?
-                        <input type="radio" name="imagem_principal" value="${radioValue}">
-                    </label>
-                    <br><br>
-                `;
-                container.appendChild(div);
-            }
-
-            // ... (o restante do JavaScript permanece inalterado)
+            // ACIONA O CARREGAMENTO IMEDIATAMENTE APÓS O SELECT SER RENDERIZADO
+            document.addEventListener('DOMContentLoaded', () => {
+                const categoriadoingredienteElement = document.getElementById("categoriadoingrediente");
+                if (categoriadoingredienteElement && categoriadoingredienteElement.value) {
+                    carregarCategorias(<?= $id_produto ?>);
+                }
+                
+                // 🆕 NOVIDADE: Lógica para o campo de preço promocional
+                // Verifica se a categoria de promoção existe e pega o checkbox
+                const idPromo = <?= json_encode($id_promocao) ?>;
+                if (idPromo) {
+                    const promoCheckbox = document.querySelector(`input[type="checkbox"][data-categoria-id="${idPromo}"]`);
+                    const promoField = document.getElementById('campo-promocao');
+                    
+                    if (promoCheckbox && promoField) {
+                        // Função para alternar a visibilidade
+                        const togglePromoField = () => {
+                            if (promoCheckbox.checked) {
+                                promoField.style.display = 'block';
+                            } else {
+                                promoField.style.display = 'none';
+                                // Opcional: limpar o valor quando desmarcar
+                                const inputPromo = promoField.querySelector('input');
+                                if(inputPromo) inputPromo.value = '';
+                            }
+                        };
+                        // Executa na carga da página
+                        togglePromoField();
+                        // Adiciona o evento de mudança
+                        promoCheckbox.addEventListener('change', togglePromoField);
+                    }
+                }
+            });
         </script>
 
         <br>
@@ -490,5 +521,82 @@ if ($cat_ass_res) {
         }, 3000);
     </script>
 <?php endif; ?>
+
+<script>
+    function adicionarCampoImagem() {
+        const container = document.getElementById('imagens-container');
+        const index = container.children.length; // Conta quantos filhos para gerar indice único
+        const div = document.createElement('div');
+        
+        // Define um valor único para o radio da nova imagem para identificar no PHP
+        const radioValue = "nova_imagem_" + index;
+
+        div.innerHTML = `
+            <input type="file" name="imagens[]" required>
+            <input type="text" name="legenda[]" placeholder="Legenda da imagem">
+            <label>
+                Principal?
+                <input type="radio" name="imagem_principal" value="${radioValue}">
+            </label>
+            <br><br>
+        `;
+        container.appendChild(div);
+    }
+
+    // Função principal para carregar categorias via AJAX
+    function carregarCategorias(id_produto) {
+        const categoriadoingrediente = document.getElementById("categoriadoingrediente").value;
+        if (!categoriadoingrediente) {
+            document.getElementById("ingredientes-container").innerHTML = '';
+            return;
+        }
+        
+        const url = `?ajax=categorias2&categoriadoingrediente=${categoriadoingrediente}&id=${id_produto}`;
+
+        fetch(url)
+            .then(res => res.text())
+            .then(data => {
+                document.getElementById("ingredientes-container").innerHTML = data;
+                setupQuantityControls();
+            })
+            .catch(error => {
+                console.error("Erro ao carregar ingredientes:", error);
+                const container = document.getElementById("ingredientes-container");
+                container.innerHTML = "<p style='color:red;'>Erro ao carregar ingredientes. Por favor, tente novamente.</p>";
+            });
+    }
+
+    // Função para configurar os botões de quantidade e cálculo dinâmico
+    function setupQuantityControls() {
+        document.querySelectorAll(".ingrediente-card").forEach(card => {
+            const btnMais = card.querySelector(".mais");
+            const btnMenos = card.querySelector(".menos");
+            const inputQtd = card.querySelector(".quantidade");
+            const precoTotalElement = card.querySelector(".preco-total");
+            const precoBase = parseFloat(card.dataset.precoBase);
+
+            // Função interna para atualizar o preço total do ingrediente
+            const atualizarPreco = () => {
+                const quantidade = parseInt(inputQtd.value);
+                const precoTotal = quantidade * precoBase;
+                precoTotalElement.textContent = `+ ${precoTotal.toLocaleString('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MZN`;
+            };
+
+            btnMais.addEventListener("click", () => {
+                inputQtd.value = parseInt(inputQtd.value) + 1;
+                atualizarPreco();
+            });
+
+            btnMenos.addEventListener("click", () => {
+                let val = parseInt(inputQtd.value) - 1;
+                if (val < 0) val = 0;
+                inputQtd.value = val;
+                atualizarPreco();
+            });
+
+            atualizarPreco();
+        });
+    }
+</script>
 </body>
 </html>
