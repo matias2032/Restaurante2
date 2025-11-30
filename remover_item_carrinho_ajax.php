@@ -1,7 +1,8 @@
 <?php
-//remover_item_carrinho.ajax
 session_start();
 header("Content-Type: application/json");
+
+//remover_item_carrinho.ajax
 
 if (!isset($_GET['uuid'])) {
     echo json_encode(["ok" => false, "erro" => "UUID não informado"]);
@@ -67,4 +68,3 @@ if (!empty($_COOKIE['carrinho'])) {
 
 echo json_encode(["ok" => false, "erro" => "Carrinho não encontrado"]);
 exit;
-
