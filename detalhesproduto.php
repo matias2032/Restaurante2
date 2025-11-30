@@ -1,5 +1,6 @@
 <?php
 // Inclui o arquivo de conexão com o banco de dados
+//detalhesproduto.php, para itens normais
 session_start();
 include "conexao.php";
 include "verifica_login_opcional.php";
@@ -745,4 +746,5 @@ window.onload = function() {
     
 </script>
 </body>
+
 </html>
