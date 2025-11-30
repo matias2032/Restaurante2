@@ -686,4 +686,3 @@ elseif (!empty($_COOKIE['carrinho'])) {
 </script>
 </body>
 </html>
-
