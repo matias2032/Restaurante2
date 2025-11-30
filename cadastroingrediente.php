@@ -48,7 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $disponibilidade = ($quantidade > 0) ? 'Disponível' : 'Indisponível';
                 
                 $stmt = $conexao->prepare("INSERT INTO ingrediente (nome_ingrediente, descricao, preco_adicional, quantidade_estoque, disponibilidade) 
-                                         VALUES (?, ?, ?, ?, ?)");
+                                             VALUES (?, ?, ?, ?, ?)");
                 
                 if ($stmt === false) {
                     throw new Exception("Erro na preparação da inserção do ingrediente: " . $conexao->error);
@@ -100,6 +100,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         throw new Exception("Erro na preparação da inserção de imagem: " . $conexao->error);
                     }
 
+                    // Variável para rastrear se alguma imagem foi marcada como principal pelo usuário
+                    $principal_definida_manualmente = isset($_POST['imagem_principal']);
+                    
                     foreach ($_FILES['imagens']['tmp_name'] as $index => $tmp_name) {
                         if (!empty($tmp_name) && $_FILES['imagens']['error'][$index] === UPLOAD_ERR_OK) {
                             
@@ -108,14 +111,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                             if (move_uploaded_file($tmp_name, $destino)) {
                                 $legenda = $_POST['legenda'][$index] ?? '';
-                                // Verifica se o rádio button 'imagem_principal' corresponde ao índice atual
+                                
+                                // **LÓGICA IMPLEMENTADA AQUI:**
+                                // 1. Verifica se o rádio button 'imagem_principal' corresponde ao índice atual
                                 $imagem_principal = (isset($_POST['imagem_principal']) && (string)$_POST['imagem_principal'] === (string)$index) ? 1 : 0;
+                                
+                                // 2. Se NENHUMA foi definida manualmente E esta é a PRIMEIRA imagem (índice 0), force como principal.
+                                if (!$principal_definida_manualmente && $index === 0) {
+                                    $imagem_principal = 1;
+                                }
+                                // A lógica original de radio button do JS já garante que apenas uma será marcada.
+                                // Se `principal_definida_manualmente` for true, o if do `$index === 0` é ignorado.
                                 
                                 // CORREÇÃO AQUI: Usar $id_ingrediente em vez de $id_produto
                                 $stmt_img->bind_param("issi", $id_ingrediente, $destino, $legenda, $imagem_principal);
                                 
                                 if (!$stmt_img->execute()) {
-                                     throw new Exception("Erro ao inserir a imagem: " . $stmt_img->error);
+                                    throw new Exception("Erro ao inserir a imagem: " . $stmt_img->error);
                                 }
 
                             } else {
@@ -149,7 +161,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-       <title>Cadastro de Ingrediente</title>
+        <title>Cadastro de Ingrediente</title>
     
     <script src="logout_auto.js"></script>
     
@@ -163,14 +175,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 <button class="menu-btn">☰</button>
 
-<!-- Overlay -->
 <div class="sidebar-overlay"></div>
     
 <sidebar class="sidebar">
     <br><br>
     <a href="ver_ingredientes.php">Voltar aos ingredientes</a>
-    <!-- ===== PERFIL NO FUNDO DA SIDEBAR ===== -->
-<div class="sidebar-user-wrapper">
+    <div class="sidebar-user-wrapper">
 
     <div class="sidebar-user" id="usuarioDropdown">
 
@@ -183,26 +193,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <div class="usuario-apelido"><?= $apelido ?></div>
         </div>
 
-        <!-- DROPDOWN PARA CIMA -->
         <div class="usuario-menu" id="menuPerfil">
             <a href='editarusuario.php?id_usuario=<?= $usuario['id_usuario'] ?>'>
-            <img class="icone" src="icones/user1.png" alt="Editar" title="Editar">    
+            <img class="icone" src="icones/user1.png" alt="Editar" title="Editar">     
             Editar Dados Pessoais</a>
             <a href="alterar_senha2.php">
             <img class="icone" src="icones/cadeado1.png" alt="Alterar" title="Alterar">     
             Alterar Senha</a>
             <a href="logout.php">
-            <img class="iconelogout" src="icones/logout1.png" alt="Logout" title="Sair">    
+            <img class="iconelogout" src="icones/logout1.png" alt="Logout" title="Sair">     
             Sair</a>
         </div>
 
     </div>
 
-    <!-- BOTÃO DE MODO ESCURO -->
     <img class="dark-toggle" id="darkToggle"
-         src="icones/lua.png"
-         alt="Modo Escuro"
-         title="Alternar modo escuro">
+          src="icones/lua.png"
+          alt="Modo Escuro"
+          title="Alternar modo escuro">
 </div>
 
 </sidebar>
@@ -240,9 +248,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             
             // CORREÇÃO APLICADA: O nome do input é 'ingredientes[]', que é o que o PHP recebe.
             echo "<div class='ingrediente-card " . ($checked ? 'selecionado' : '') . "'>";
-            echo "  <label>";
-            echo "      <input type='checkbox' name='ingredientes[]' value='{$id_cat}' class='ingrediente-checkbox' {$checked}> " . htmlspecialchars($categoria['nome_categoriadoingrediente']);
-            echo "  </label>";
+            echo "   <label>";
+            echo "     <input type='checkbox' name='ingredientes[]' value='{$id_cat}' class='ingrediente-checkbox' {$checked}> " . htmlspecialchars($categoria['nome_categoriadoingrediente']);
+            echo "   </label>";
             echo "</div>";
         }
         ?>  
@@ -250,8 +258,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             
         <h4>Imagens do Ingrediente</h4>
         <div id="imagens-container">
-            <!-- Campos de imagem serão adicionados aqui pelo JS -->
-        </div>
+            </div>
         <button type="button" onclick="adicionarCampoImagem()">+ Adicionar Imagem</button><br><br>
 
         <button class="cadastrar" type="submit">Cadastrar Ingrediente</button>
