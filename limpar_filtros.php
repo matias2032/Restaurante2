@@ -23,5 +23,3 @@ $dest = $map[$origem] ?? 'cardapio.php';
 header("Location: $dest");
 exit;
 ?>
-
-

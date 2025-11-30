@@ -56,10 +56,10 @@ if (!empty($preco_max)) {
 }
 
 $sql = "
-  SELECT
+    SELECT
         p.*, p.preco, p.preco_promocional,
         GROUP_CONCAT(c.nome_categoria SEPARATOR ', ') AS categorias_nomes,
-        MAX(img.caminho_imagem) AS imagem_principal
+        img.caminho_imagem AS imagem_principal
     FROM
         produto p
     LEFT JOIN

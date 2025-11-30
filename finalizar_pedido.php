@@ -308,8 +308,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         // 3. INSERIR NA PEDIDO_TEMP E GERAR REFERÊNCIA
         $reference = strtoupper(bin2hex(random_bytes(6)));
-
-$returnUrl = "https://web-production-51ac.up.railway.app/finalizar_pedido.php?ref=" . $reference;
+        $returnUrl = "https://undebated-man-unrelating.ngrok-free.dev/Restaurante/finalizar_pedido.php?ref=" . $reference;
         
         $stmt_temp = $conexao->prepare("
             INSERT INTO pedido_temp (id_usuario, reference, idtipo_pagamento, idtipo_entrega, total, pontos_gastos, endereco_info, itens, bairro, ponto_referencia, telefone,data_criacao)
@@ -792,5 +791,4 @@ window.addEventListener("click", (e) => {
 
 </script>
 </body>
-
 </html>
