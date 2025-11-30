@@ -72,10 +72,10 @@ if (!empty($id_categoria)) {
 
 // Consulta principal para obter os produtos, agora usando a tabela de associação
 $sql = "
-    SELECT
-        p.*, p.preco_promocional,p.preco,
-        GROUP_CONCAT(c.nome_categoria SEPARATOR ', ') AS categorias_nomes,
-        img.caminho_imagem AS imagem_principal
+SELECT
+    p.*, p.preco_promocional,p.preco,
+    GROUP_CONCAT(c.nome_categoria SEPARATOR ', ') AS categorias_nomes,
+    MAX(img.caminho_imagem) AS imagem_principal
     FROM
         produto p
     LEFT JOIN
