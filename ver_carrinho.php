@@ -1,4 +1,6 @@
 <?php
+
+//ver_carrinho.php
 session_start();
 
 include "conexao.php";
@@ -684,3 +686,4 @@ elseif (!empty($_COOKIE['carrinho'])) {
 </script>
 </body>
 </html>
+
