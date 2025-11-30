@@ -105,11 +105,12 @@ if ($carrossel_ativo) {
 }
 
 // Consulta produtos da categoria "Promoções da Semana"
+// Consulta produtos da categoria "Promoções da Semana"
 $sql = "
     SELECT
         p.*, p.preco, p.preco_promocional,
         GROUP_CONCAT(c.nome_categoria SEPARATOR ', ') AS categorias_nomes,
-        img.caminho_imagem AS imagem_principal
+        MAX(img.caminho_imagem) AS imagem_principal
     FROM
         produto p
     LEFT JOIN
@@ -123,7 +124,7 @@ $sql = "
     GROUP BY
         p.id_produto
 ";
-$result = $conexao->query($sql);
+$result = $conexao->query($sql);$result = $conexao->query($sql);
 ?>
 <!DOCTYPE html>
 <html lang="pt">
